@@ -1,4 +1,5 @@
-import { Injector, ModuleExports, util, webpack } from "replugged";
+import { Injector, ModuleExports, common, util, webpack } from "replugged";
+const { React } = common;
 import "./main.css";
 import { hexToRgba } from "./util";
 
@@ -100,8 +101,7 @@ async function injectUserMentions(): Promise<void> {
     const member = getTrueMember(guildId, userId);
     if (!member || !member.colorString) return res;
     if (!res || !res.props) return res;
-    // Todo switch back to regular common once fixed
-    res = window.replugged.common.React.createElement(
+    res = React.createElement(
       "span",
       {
         style: {
