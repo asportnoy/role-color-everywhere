@@ -1,4 +1,4 @@
-import { Injector, ModuleExports, common, util, webpack } from "replugged";
+import { Injector, common, types, util, webpack } from "replugged";
 const { React } = common;
 import "./main.css";
 import { hexToRgba } from "./util";
@@ -92,7 +92,7 @@ async function injectTyping(): Promise<void> {
 }
 
 async function injectUserMentions(): Promise<void> {
-  const parser = await webpack.waitForModule<ModuleExports & Parser>(
+  const parser = await webpack.waitForModule<types.ModuleExports & Parser>(
     webpack.filters.byProps("parse", "parseTopic"),
   );
 
