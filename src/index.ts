@@ -1,5 +1,5 @@
-import React from "react";
 import { Injector, ModuleExports, elementUtils, webpack } from "replugged";
+const React = webpack.common.react;
 import "./main.css";
 import { hexToRgba } from "./util";
 
