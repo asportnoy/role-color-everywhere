@@ -23,6 +23,7 @@ const globalModules = {
       "themes",
       "ignition",
       "plugins",
+      "elementUtils",
     ],
     defaultExport: true,
   },

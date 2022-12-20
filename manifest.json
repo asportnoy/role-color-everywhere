@@ -1,16 +1,16 @@
 {
-  "id": "dev.replugged.PluginTemplate",
-  "name": "Plugin Template",
-  "description": "A plugin template",
+  "id": "dev.albertp.RoleColorEverywhere",
+  "name": "Role Color Everywhere",
+  "description": "Adds some colors to Discord's element depending on roles.",
   "author": {
-    "name": "replugged",
-    "discordID": "1000992611840049192",
-    "github": "replugged-org"
+    "name": "asportnoy",
+    "discordID": "489484338514100234",
+    "github": "asportnoy"
   },
-  "version": "1.0.2",
+  "version": "1.0.0",
   "updater": {
     "type": "github",
-    "id": "replugged-org/plugin-template"
+    "id": "asportnoy/role-color-everywhere"
   },
   "license": "MIT",
   "type": "replugged-plugin",
