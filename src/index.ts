@@ -20,21 +20,29 @@ type TypingSelf = Record<string, unknown> & {
   };
 };
 
-interface GetMember {
+type GetMember = Record<string, unknown> & {
   getTrueMember: (
     guildId: string,
     userId: string,
   ) => Record<string, unknown> & {
     colorString: string | null;
   };
-}
+};
+
+let getTrueMember: GetMember["getTrueMember"];
 
 export async function start(): Promise<void> {
+  const rawMod = await webpack.waitForModule(webpack.filters.byProps("getTrueMember", "getMember"));
+  const mod = webpack.getExportsForProps<"getTrueMember", GetMember>(rawMod, ["getTrueMember"])!;
+  getTrueMember = mod.getTrueMember;
+
+  void injectTyping();
+}
+
+export async function injectTyping(): Promise<void> {
   const typingModule = elementUtils.getOwnerInstance<TypingElementModule>(
     await elementUtils.waitFor(".typing-2J1mQU"),
   );
-  const { getTrueMember } = webpack.getByProps("getTrueMember", "getMember")! as GetMember;
-  console.log(getTrueMember);
 
   inject.after(typingModule, "render", (_args, res, origSelf) => {
     const typingChildren = res?.props?.children?.[0]?.props?.children?.[1];
