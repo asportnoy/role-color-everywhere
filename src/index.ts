@@ -1,5 +1,7 @@
-import { Injector, elementUtils, webpack } from "replugged";
+import React from "react";
+import { Injector, ModuleExports, elementUtils, webpack } from "replugged";
 import "./main.css";
+import { hexToRgba } from "./util";
 
 const inject = new Injector();
 
@@ -29,6 +31,24 @@ type GetMember = Record<string, unknown> & {
   };
 };
 
+interface State {
+  prevCapture: RegExpExecArray | null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+interface Rule<T = any> {
+  order: number;
+  match: (source: string, state: State) => RegExpExecArray | null;
+  parse: (match: RegExpExecArray) => T;
+  react: (props: T) => React.ReactElement;
+}
+
+interface Parser {
+  parse: (args: unknown) => React.ReactElement;
+  reactParserFor(rules: Record<string, Rule>): (args: unknown) => React.ReactElement;
+  defaultRules: Record<string, Rule>;
+}
+
 let getTrueMember: GetMember["getTrueMember"];
 
 export async function start(): Promise<void> {
@@ -37,9 +57,10 @@ export async function start(): Promise<void> {
   getTrueMember = mod.getTrueMember;
 
   void injectTyping();
+  void injectUserMentions();
 }
 
-export async function injectTyping(): Promise<void> {
+async function injectTyping(): Promise<void> {
   const typingModule = elementUtils.getOwnerInstance<TypingElementModule>(
     await elementUtils.waitFor(".typing-2J1mQU"),
   );
@@ -68,6 +89,33 @@ export async function injectTyping(): Promise<void> {
   });
 
   typingModule.forceUpdate();
+}
+
+async function injectUserMentions(): Promise<void> {
+  const parser = await webpack.waitForModule<ModuleExports & Parser>(
+    webpack.filters.byProps("parse", "parseTopic"),
+  );
+
+  inject.after(parser.defaultRules.mention, "react", ([{ userId, guildId }], res) => {
+    if (!guildId) return res;
+    const member = getTrueMember(guildId, userId);
+    if (!member || !member.colorString) return res;
+    if (!res || !res.props) return res;
+    res = React.createElement(
+      "span",
+      {
+        style: {
+          "--color": member.colorString,
+          "--hovered-color": member.colorString,
+          "--background-color": hexToRgba(member.colorString, 0.1),
+          "--hover-background-color": hexToRgba(member.colorString, 0.2),
+        },
+        className: "role-color-colored",
+      },
+      res,
+    );
+    return res;
+  });
 }
 
 export function stop(): void {

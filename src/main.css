@@ -1,3 +1,14 @@
 .role-color-colored {
   color: var(--color);
+  background-color: var(--background-color);
+}
+
+.role-color-colored:hover {
+  color: var(--hover-color, var(--color));
+  background-color: var(--hover-background-color, var(--background-color));
+}
+
+.role-color-colored .mention {
+  color: inherit !important;
+  background-color: inherit !important;
 }
