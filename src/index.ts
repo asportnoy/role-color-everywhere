@@ -1,5 +1,4 @@
-import { Injector, ModuleExports, elementUtils, webpack } from "replugged";
-const React = webpack.common.react;
+import { Injector, ModuleExports, util, webpack } from "replugged";
 import "./main.css";
 import { hexToRgba } from "./util";
 
@@ -61,8 +60,8 @@ export async function start(): Promise<void> {
 }
 
 async function injectTyping(): Promise<void> {
-  const typingModule = elementUtils.getOwnerInstance<TypingElementModule>(
-    await elementUtils.waitFor(".typing-2J1mQU"),
+  const typingModule = util.getOwnerInstance<TypingElementModule>(
+    await util.waitFor(".typing-2J1mQU"),
   );
 
   inject.after(typingModule, "render", (_args, res, origSelf) => {
@@ -101,7 +100,8 @@ async function injectUserMentions(): Promise<void> {
     const member = getTrueMember(guildId, userId);
     if (!member || !member.colorString) return res;
     if (!res || !res.props) return res;
-    res = React.createElement(
+    // Todo switch back to regular common once fixed
+    res = window.replugged.common.React.createElement(
       "span",
       {
         style: {
