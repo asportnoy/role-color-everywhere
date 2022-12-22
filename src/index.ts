@@ -1,3 +1,4 @@
+import { User } from "discord-types/general";
 import { Injector, common, types, util, webpack } from "replugged";
 const { React } = common;
 import "./main.css";
@@ -31,6 +32,11 @@ type GetMember = Record<string, unknown> & {
   };
 };
 
+type UserMod = Record<string, unknown> & {
+  getUser: (userId: string) => User | undefined;
+  getCurrentUser: () => User;
+};
+
 interface State {
   prevCapture: RegExpExecArray | null;
 }
@@ -50,11 +56,16 @@ interface Parser {
 }
 
 let getTrueMember: GetMember["getTrueMember"];
+let getCurrentUser: UserMod["getCurrentUser"];
 
 export async function start(): Promise<void> {
   const rawMod = await webpack.waitForModule(webpack.filters.byProps("getTrueMember", "getMember"));
   const mod = webpack.getExportsForProps<"getTrueMember", GetMember>(rawMod, ["getTrueMember"])!;
   getTrueMember = mod.getTrueMember;
+  const userMod = await webpack.waitForModule<UserMod>(
+    webpack.filters.byProps("getUser", "getCurrentUser"),
+  );
+  getCurrentUser = userMod.getCurrentUser;
 
   void injectTyping();
   void injectUserMentions();
@@ -71,8 +82,13 @@ async function injectTyping(): Promise<void> {
 
     const self = origSelf as unknown as TypingSelf;
 
+    const currentUserId = getCurrentUser().id;
+
     // todo filter blocked
-    const users = Object.keys(self.props.typingUsers);
+    console.log(self.props.typingUsers);
+    const users = Object.keys(self.props.typingUsers).filter((x) => x !== currentUserId);
+    console.log(users);
+
     const { guildId } = self.props;
     if (!guildId) return res;
 
