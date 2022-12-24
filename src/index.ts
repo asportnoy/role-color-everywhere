@@ -85,9 +85,7 @@ async function injectTyping(): Promise<void> {
     const currentUserId = getCurrentUser().id;
 
     // todo filter blocked
-    console.log(self.props.typingUsers);
     const users = Object.keys(self.props.typingUsers).filter((x) => x !== currentUserId);
-    console.log(users);
 
     const { guildId } = self.props;
     if (!guildId) return res;
