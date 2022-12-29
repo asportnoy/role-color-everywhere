@@ -27,9 +27,11 @@ type GetMember = Record<string, unknown> & {
   getTrueMember: (
     guildId: string,
     userId: string,
-  ) => Record<string, unknown> & {
-    colorString: string | null;
-  };
+  ) =>
+    | (Record<string, unknown> & {
+        colorString: string | null;
+      })
+    | undefined;
 };
 
 type UserMod = Record<string, unknown> & {
@@ -57,6 +59,7 @@ interface Parser {
 
 let getTrueMember: GetMember["getTrueMember"];
 let getCurrentUser: UserMod["getCurrentUser"];
+let getUser: UserMod["getUser"];
 
 export async function start(): Promise<void> {
   const rawMod = await webpack.waitForModule(webpack.filters.byProps("getTrueMember", "getMember"));
@@ -65,6 +68,7 @@ export async function start(): Promise<void> {
   const userMod = await webpack.waitForModule<UserMod>(
     webpack.filters.byProps("getUser", "getCurrentUser"),
   );
+  getUser = userMod.getUser;
   getCurrentUser = userMod.getCurrentUser;
 
   void injectTyping();
@@ -91,10 +95,10 @@ async function injectTyping(): Promise<void> {
     if (!guildId) return res;
 
     users.forEach((user, i) => {
-      const member = getTrueMember(guildId, user);
-      if (!member || !member.colorString) return;
       const el = res.props.children[0].props.children[1].props.children[i * 2];
       if (!el || !el.props) return;
+      const member = getTrueMember(guildId, user);
+      if (!member || !member.colorString) return;
       el.props.className = "role-color-colored";
       el.props.style = { "--color": member.colorString };
     });
@@ -113,9 +117,21 @@ async function injectUserMentions(): Promise<void> {
   inject.after(parser.defaultRules.mention, "react", ([{ userId, guildId }], res) => {
     if (!guildId) return res;
     const member = getTrueMember(guildId, userId);
-    if (!member || !member.colorString) return res;
+    if (!member) {
+      const user = getUser(userId);
+      if (!user) return res;
+
+      return React.createElement(
+        "span",
+        {
+          className: "role-color-colored role-color-missing",
+        },
+        res,
+      );
+    }
+    if (!member.colorString) return res;
     if (!res || !res.props) return res;
-    res = React.createElement(
+    return React.createElement(
       "span",
       {
         style: {
@@ -128,7 +144,6 @@ async function injectUserMentions(): Promise<void> {
       },
       res,
     );
-    return res;
   });
 }
 

@@ -12,3 +12,7 @@
   color: inherit !important;
   background-color: inherit !important;
 }
+
+.role-color-missing {
+  text-decoration: line-through;
+}
