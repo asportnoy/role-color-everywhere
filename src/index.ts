@@ -1,6 +1,9 @@
-import { User } from "discord-types/general";
 import { Injector, common, types, util, webpack } from "replugged";
-const { React } = common;
+const { filters, getExportsForProps, waitForModule } = webpack;
+const {
+  React,
+  users: { getUser, getCurrentUser, getTrueMember },
+} = common;
 import "./main.css";
 import { hexToRgba } from "./util";
 
@@ -25,22 +28,6 @@ type TypingSelf = Record<string, unknown> & {
   };
 };
 
-type GetMember = Record<string, unknown> & {
-  getTrueMember: (
-    guildId: string,
-    userId: string,
-  ) =>
-    | (Record<string, unknown> & {
-        colorString: string | null;
-      })
-    | undefined;
-};
-
-type UserMod = Record<string, unknown> & {
-  getUser: (userId: string) => User | undefined;
-  getCurrentUser: () => User;
-};
-
 interface State {
   prevCapture: RegExpExecArray | null;
 }
@@ -59,21 +46,23 @@ interface Parser {
   defaultRules: Record<string, Rule>;
 }
 
-let getTrueMember: GetMember["getTrueMember"];
-let getCurrentUser: UserMod["getCurrentUser"];
-let getUser: UserMod["getUser"];
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+type BlockedStore = {
+  isBlocked: (userId: string) => boolean;
+  isFriend: (userId: string) => boolean;
+};
+
+let isBlocked: BlockedStore["isBlocked"];
 
 let stopped = false;
 
 export async function start(): Promise<void> {
-  const rawMod = await webpack.waitForModule(webpack.filters.byProps("getTrueMember", "getMember"));
-  const mod = webpack.getExportsForProps<"getTrueMember", GetMember>(rawMod, ["getTrueMember"])!;
-  getTrueMember = mod.getTrueMember;
-  const userMod = await webpack.waitForModule<UserMod>(
-    webpack.filters.byProps("getUser", "getCurrentUser"),
-  );
-  getUser = userMod.getUser;
-  getCurrentUser = userMod.getCurrentUser;
+  const blockedStoreMod = await waitForModule(filters.byProps("isBlocked", "isFriend"));
+  const blockedStore = getExportsForProps<keyof BlockedStore, BlockedStore>(blockedStoreMod, [
+    "isBlocked",
+    "isFriend",
+  ])!;
+  isBlocked = blockedStore.isBlocked;
 
   void injectTyping();
   void injectUserMentions();
@@ -93,7 +82,7 @@ let typingMod: TypingElementModule;
 let typingInjections: Array<() => void> = [];
 
 function gotTypingElement(element: Element): void {
-  const typingModule = util.getOwnerInstance<TypingElementModule>(element);
+  const typingModule = util.getOwnerInstance(element) as TypingElementModule;
   if (!typingModule) return;
   if (typingMod === typingModule) return;
   typingInjections.forEach((x) => x());
@@ -110,8 +99,9 @@ function gotTypingElement(element: Element): void {
 
     const currentUserId = getCurrentUser().id;
 
-    // todo filter blocked
-    const users = Object.keys(self.props.typingUsers).filter((x) => x !== currentUserId);
+    const users = Object.keys(self.props.typingUsers).filter(
+      (x) => x !== currentUserId && !isBlocked(x),
+    );
 
     const { guildId } = self.props;
     if (!guildId) return res;
