@@ -12,7 +12,9 @@ type TypingElementModule = Record<string, unknown> & {
       guildId: string;
       typingUsers: Record<string, number>;
     };
-  }) => React.ReactElement;
+  }) => React.ReactElement & {
+    classList?: string;
+  };
   forceUpdate: () => void;
 };
 
@@ -61,6 +63,8 @@ let getTrueMember: GetMember["getTrueMember"];
 let getCurrentUser: UserMod["getCurrentUser"];
 let getUser: UserMod["getUser"];
 
+let stopped = false;
+
 export async function start(): Promise<void> {
   const rawMod = await webpack.waitForModule(webpack.filters.byProps("getTrueMember", "getMember"));
   const mod = webpack.getExportsForProps<"getTrueMember", GetMember>(rawMod, ["getTrueMember"])!;
@@ -76,11 +80,29 @@ export async function start(): Promise<void> {
 }
 
 async function injectTyping(): Promise<void> {
-  const typingModule = util.getOwnerInstance<TypingElementModule>(
-    await util.waitFor(".typing-2J1mQU"),
-  );
+  const el = await util.waitFor(".typing-2J1mQU:not(.role-color-injected)");
+  if (stopped) return;
+  el.classList.add("role-color-injected");
+  try {
+    gotTypingElement(el);
+  } catch {}
+  await injectTyping();
+}
 
-  inject.after(typingModule, "render", (_args, res, origSelf) => {
+let typingMod: TypingElementModule;
+let typingInjections: Array<() => void> = [];
+
+function gotTypingElement(element: Element): void {
+  const typingModule = util.getOwnerInstance<TypingElementModule>(element);
+  if (!typingModule) return;
+  if (typingMod === typingModule) return;
+  typingInjections.forEach((x) => x());
+  typingMod = typingModule;
+
+  const uninject = inject.after(typingModule, "render", (_args, res, origSelf) => {
+    if (!res.classList) res.classList = "";
+    if (!res.classList.includes("role-color-injected")) res.classList += ` role-color-injected`;
+
     const typingChildren = res?.props?.children?.[0]?.props?.children?.[1];
     if (!typingChildren) return res;
 
@@ -106,6 +128,7 @@ async function injectTyping(): Promise<void> {
     return res;
   });
 
+  typingInjections.push(uninject);
   typingModule.forceUpdate();
 }
 
@@ -148,5 +171,6 @@ async function injectUserMentions(): Promise<void> {
 }
 
 export function stop(): void {
+  stopped = true;
   inject.uninjectAll();
 }
