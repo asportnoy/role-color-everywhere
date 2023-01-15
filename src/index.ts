@@ -137,7 +137,7 @@ async function injectUserMentions(): Promise<void> {
       return React.createElement(
         "span",
         {
-          className: "role-color-colored role-color-missing",
+          className: "role-color-missing",
         },
         res,
       );
