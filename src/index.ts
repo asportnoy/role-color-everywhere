@@ -1,5 +1,5 @@
 import { Injector, common, types, util, webpack } from "replugged";
-const { filters, getExportsForProps, waitForModule } = webpack;
+const { waitForProps } = webpack;
 const {
   React,
   users: { getUser, getCurrentUser, getTrueMember },
@@ -57,11 +57,10 @@ let isBlocked: BlockedStore["isBlocked"];
 let stopped = false;
 
 export async function start(): Promise<void> {
-  const blockedStoreMod = await waitForModule(filters.byProps("isBlocked", "isFriend"));
-  const blockedStore = getExportsForProps<keyof BlockedStore, BlockedStore>(blockedStoreMod, [
+  const blockedStore = await waitForProps<keyof BlockedStore, BlockedStore>(
     "isBlocked",
     "isFriend",
-  ])!;
+  );
   isBlocked = blockedStore.isBlocked;
 
   void injectTyping();
