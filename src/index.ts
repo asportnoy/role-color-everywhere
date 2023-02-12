@@ -1,7 +1,8 @@
-import { Injector, common, types, util, webpack } from "replugged";
+import { Injector, common, util, webpack } from "replugged";
 const { waitForProps } = webpack;
 const {
   React,
+  parser,
   users: { getUser, getCurrentUser, getTrueMember },
 } = common;
 import "./main.css";
@@ -27,24 +28,6 @@ type TypingSelf = Record<string, unknown> & {
     guildId: string;
   };
 };
-
-interface State {
-  prevCapture: RegExpExecArray | null;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-interface Rule<T = any> {
-  order: number;
-  match: (source: string, state: State) => RegExpExecArray | null;
-  parse: (match: RegExpExecArray) => T;
-  react: (props: T) => React.ReactElement;
-}
-
-interface Parser {
-  parse: (args: unknown) => React.ReactElement;
-  reactParserFor(rules: Record<string, Rule>): (args: unknown) => React.ReactElement;
-  defaultRules: Record<string, Rule>;
-}
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type BlockedStore = {
@@ -121,11 +104,7 @@ function gotTypingElement(element: Element): void {
   typingModule.forceUpdate();
 }
 
-async function injectUserMentions(): Promise<void> {
-  const parser = await webpack.waitForModule<types.ModuleExports & Parser>(
-    webpack.filters.byProps("parse", "parseTopic"),
-  );
-
+function injectUserMentions(): void {
   inject.after(parser.defaultRules.mention, "react", ([{ userId, guildId }], res) => {
     if (!guildId) return res;
     const member = getTrueMember(guildId, userId);
