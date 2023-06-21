@@ -1,4 +1,4 @@
-import { Injector, common, util, webpack } from "replugged";
+import { Injector, common, settings, util, webpack } from "replugged";
 const { filters, waitForModule, waitForProps } = webpack;
 const {
   React,
@@ -8,6 +8,25 @@ const {
 import "./main.css";
 import { hexToRgba } from "./util";
 import { User } from "discord-types/general";
+
+interface Settings {
+  typingUser?: boolean;
+  userMentions?: boolean;
+  voiceUsers?: boolean;
+}
+
+const defaultSettings = {
+  typingUser: true,
+  userMentions: true,
+  voiceUsers: true,
+} satisfies Settings;
+
+export const cfg = await settings.init<Settings, keyof typeof defaultSettings>(
+  "dev.albertp.RoleColorEverywhere",
+  defaultSettings,
+);
+
+export { Settings } from "./Settings";
 
 const inject = new Injector();
 
@@ -74,6 +93,7 @@ function gotTypingElement(element: Element): void {
   const uninject = inject.after(typingModule, "render", (_args, res, origSelf) => {
     if (!res.classList) res.classList = "";
     if (!res.classList.includes("role-color-injected")) res.classList += ` role-color-injected`;
+    if (!cfg.get("typingUser")) return res;
 
     const typingChildren = res?.props?.children?.[0]?.props?.children?.[1];
     if (!typingChildren) return res;
@@ -107,6 +127,7 @@ function gotTypingElement(element: Element): void {
 
 function injectUserMentions(): void {
   inject.after(parser.defaultRules.mention, "react", ([{ userId, guildId }], res) => {
+    if (!cfg.get("userMentions")) return res;
     if (!guildId) return res;
     const member = getTrueMember(guildId, userId);
     if (!member) {
@@ -142,7 +163,8 @@ async function injectVoiceUsers(): Promise<void> {
   console.log(voiceUserMod, voiceUserModExport);
 
   inject.after(voiceUserModExport.prototype, "renderName", (_args, res) => {
-    const { guildId, user }: { guildId: string; user: User } = res._owner.memoizedProps;
+    if (!cfg.get("voiceUsers")) return res;
+    const { guildId, user }: { guildId: string; user: User } = res._owner.pendingProps;
     const member = getTrueMember(guildId, user.id);
     if (!member) return res;
     if (!member.colorString) return res;
