@@ -1,4 +1,4 @@
-import { Injector, common, settings, util, webpack } from "replugged";
+import { Injector, Logger, common, settings, util, webpack } from "replugged";
 const { filters, waitForModule, waitForProps } = webpack;
 const {
   React,
@@ -25,6 +25,8 @@ export const cfg = await settings.init<Settings, keyof typeof defaultSettings>(
   "dev.albertp.RoleColorEverywhere",
   defaultSettings,
 );
+
+const logger = Logger.plugin("RoleColorEverywhere");
 
 export { Settings } from "./Settings";
 
@@ -59,10 +61,7 @@ let isBlocked: BlockedStore["isBlocked"];
 let stopped = false;
 
 export async function start(): Promise<void> {
-  const blockedStore = await waitForProps<keyof BlockedStore, BlockedStore>(
-    "isBlocked",
-    "isFriend",
-  );
+  const blockedStore = await waitForProps<BlockedStore>("isBlocked", "isFriend");
   isBlocked = blockedStore.isBlocked;
 
   void injectTyping();
@@ -126,8 +125,9 @@ function gotTypingElement(element: Element): void {
 }
 
 function injectUserMentions(): void {
-  inject.after(parser.defaultRules.mention, "react", ([{ userId, guildId }], res) => {
+  inject.after(parser.defaultRules.mention, "react", (args, res) => {
     if (!cfg.get("userMentions")) return res;
+    const [{ userId, guildId }] = args as [{ userId: string; guildId?: string }];
     if (!guildId) return res;
     const member = getTrueMember(guildId, userId);
     if (!member) {
@@ -156,11 +156,20 @@ function injectUserMentions(): void {
 }
 
 async function injectVoiceUsers(): Promise<void> {
-  const voiceUserMod = await waitForModule(filters.bySource(".userNameClassName"));
-  const voiceUserModExport = Object.values(voiceUserMod).find(
-    (x) => x?.defaultProps?.userNameClassName,
+  const voiceUserMod = await waitForModule<Record<string, Function>>(
+    filters.bySource(".userNameClassName"),
   );
-  console.log(voiceUserMod, voiceUserModExport);
+  const voiceUserModExport = Object.values(voiceUserMod).find(
+    (x) =>
+      "defaultProps" in x &&
+      x.defaultProps &&
+      typeof x.defaultProps === "object" &&
+      "userNameClassName" in x.defaultProps,
+  );
+  if (!voiceUserModExport) {
+    logger.error("Failed to find voice user module");
+    return;
+  }
 
   inject.after(voiceUserModExport.prototype, "renderName", (_args, res) => {
     if (!cfg.get("voiceUsers")) return res;
