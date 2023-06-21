@@ -1,5 +1,5 @@
 import { Injector, common, util, webpack } from "replugged";
-const { waitForProps } = webpack;
+const { filters, waitForModule, waitForProps } = webpack;
 const {
   React,
   parser,
@@ -7,6 +7,7 @@ const {
 } = common;
 import "./main.css";
 import { hexToRgba } from "./util";
+import { User } from "discord-types/general";
 
 const inject = new Injector();
 
@@ -29,7 +30,6 @@ type TypingSelf = Record<string, unknown> & {
   };
 };
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type BlockedStore = {
   isBlocked: (userId: string) => boolean;
   isFriend: (userId: string) => boolean;
@@ -48,6 +48,7 @@ export async function start(): Promise<void> {
 
   void injectTyping();
   void injectUserMentions();
+  void injectVoiceUsers();
 }
 
 async function injectTyping(): Promise<void> {
@@ -90,9 +91,9 @@ function gotTypingElement(element: Element): void {
 
     users.forEach((user, i) => {
       const el = res.props.children[0].props.children[1].props.children[i * 2];
-      if (!el || !el.props) return;
+      if (!el?.props) return;
       const member = getTrueMember(guildId, user);
-      if (!member || !member.colorString) return;
+      if (!member?.colorString) return;
       el.props.className = "role-color-colored";
       el.props.style = { "--color": member.colorString };
     });
@@ -112,29 +113,42 @@ function injectUserMentions(): void {
       const user = getUser(userId);
       if (!user) return res;
 
-      return React.createElement(
-        "span",
-        {
-          className: "role-color-missing",
-        },
-        res,
-      );
+      return <span className="role-color-missing">{res}</span>;
     }
     if (!member.colorString) return res;
-    if (!res || !res.props) return res;
-    return React.createElement(
-      "span",
-      {
-        style: {
-          "--color": member.colorString,
-          "--hovered-color": member.colorString,
-          "--background-color": hexToRgba(member.colorString, 0.1),
-          "--hover-background-color": hexToRgba(member.colorString, 0.2),
-        },
-        className: "role-color-colored",
-      },
-      res,
+    if (!res?.props) return res;
+    return (
+      <span
+        style={
+          {
+            "--color": member.colorString,
+            "--hovered-color": member.colorString,
+            "--background-color": hexToRgba(member.colorString, 0.1),
+            "--hover-background-color": hexToRgba(member.colorString, 0.2),
+          } as React.CSSProperties
+        }
+        className="role-color-colored">
+        {res}
+      </span>
     );
+  });
+}
+
+async function injectVoiceUsers(): Promise<void> {
+  const voiceUserMod = await waitForModule(filters.bySource(".userNameClassName"));
+  const voiceUserModExport = Object.values(voiceUserMod).find(
+    (x) => x?.defaultProps?.userNameClassName,
+  );
+  console.log(voiceUserMod, voiceUserModExport);
+
+  inject.after(voiceUserModExport.prototype, "renderName", (_args, res) => {
+    const { guildId, user }: { guildId: string; user: User } = res._owner.memoizedProps;
+    const member = getTrueMember(guildId, user.id);
+    if (!member) return res;
+    if (!member.colorString) return res;
+    res.props.style = { "--color": member.colorString };
+    res.props.className += " role-color-colored";
+    return res;
   });
 }
 

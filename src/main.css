@@ -1,11 +1,11 @@
 .role-color-colored {
-  color: var(--color);
-  background-color: var(--background-color);
+  color: var(--color) !important;
+  background-color: var(--background-color) !important;
 }
 
 .role-color-colored:hover {
-  color: var(--hover-color, var(--color));
-  background-color: var(--hover-background-color, var(--background-color));
+  color: var(--hover-color, var(--color)) !important;
+  background-color: var(--hover-background-color, var(--background-color)) !important;
 }
 
 .role-color-colored .mention {
