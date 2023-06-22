@@ -173,6 +173,7 @@ async function injectVoiceUsers(): Promise<void> {
 
   inject.after(voiceUserModExport.prototype, "renderName", (_args, res) => {
     if (!cfg.get("voiceUsers")) return res;
+    if (!res) return res;
     const { guildId, user }: { guildId: string; user: User } = res._owner.pendingProps;
     const member = getTrueMember(guildId, user.id);
     if (!member) return res;
