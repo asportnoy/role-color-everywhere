@@ -7,8 +7,8 @@ const {
 } = common;
 import "./main.css";
 import { hexToRgba } from "./util";
-import { User } from "discord-types/general";
-
+import type { User } from "discord-types/general";
+import type { HTMLAttributes } from "react";
 interface Settings {
   typingUser?: boolean;
   userMentions?: boolean;
@@ -148,11 +148,33 @@ function injectUserMentions(): void {
             "--hover-background-color": hexToRgba(member.colorString, 0.2),
           } as React.CSSProperties
         }
-        className="role-color-colored">
+        className="role-color-colored role-color-child-colored">
         {res}
       </span>
     );
   });
+}
+
+export function injectSlateMention(id: string, guildId?: string): HTMLAttributes<HTMLDivElement> {
+  if (!cfg.get("userMentions")) return {};
+  if (!guildId) return {};
+  const member = getTrueMember(guildId, id);
+  if (!member) {
+    const user = getUser(id);
+    if (!user) return {};
+
+    return { className: "role-color-missing" };
+  }
+  if (!member.colorString) return {};
+  return {
+    style: {
+      "--color": member.colorString,
+      "--hovered-color": member.colorString,
+      "--background-color": hexToRgba(member.colorString, 0.1),
+      "--hover-background-color": hexToRgba(member.colorString, 0.2),
+    } as React.CSSProperties,
+    className: "role-color-colored role-color-child-colored",
+  };
 }
 
 async function injectVoiceUsers(): Promise<void> {

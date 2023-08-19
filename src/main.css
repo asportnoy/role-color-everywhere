@@ -8,7 +8,7 @@
   background-color: var(--hover-background-color, var(--background-color)) !important;
 }
 
-.role-color-colored .mention {
+.role-color-colored.role-color-child-colored > * {
   color: inherit !important;
   background-color: inherit !important;
 }
