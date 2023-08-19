@@ -57,10 +57,7 @@ export function injectTyping(
   if (stopped) return undefined;
   if (!cfg.get("typingUser")) return undefined;
   if (!guildId) return undefined;
-  if (!Array.isArray(res)) {
-    logger.error("res is not an array", { res });
-    return undefined;
-  }
+  if (!res || !Array.isArray(res) || res.length === 0) return res;
 
   const currentUserId = getCurrentUser().id;
   const users = Object.keys(typingUsers)

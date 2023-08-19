@@ -21,7 +21,7 @@ const patches: PlaintextPatch[] = [
         match:
           /((\w+)=\w+\.guildId.{0,100}?(\w+)=\w+\.typingUsers[\s\S]{1600,1700}?SEVERAL_USERS_TYPING;[\s\S]{250,300}?{className:\w+\(\)\.text,"aria-live":"polite","aria-atomic":!0,children:)(\w+)(})/g,
         replace: (_, prefix, guild, typingUsers, res, suffix) =>
-          `${prefix}(${pluginExports}?.injectTyping(${typingUsers}, ${guild}, ${res}) ?? res)${suffix}`,
+          `${prefix}(${pluginExports}?.injectTyping(${typingUsers}, ${guild}, ${res}) ?? ${res})${suffix}`,
       },
     ],
   },
