@@ -1,4 +1,4 @@
-import { Injector, Logger, common, settings, util, webpack } from "replugged";
+import { Injector, Logger, common, settings, webpack } from "replugged";
 const { filters, waitForModule, waitForProps } = webpack;
 const {
   React,
@@ -32,25 +32,6 @@ export { Settings } from "./Settings";
 
 const inject = new Injector();
 
-type TypingElementModule = Record<string, unknown> & {
-  render: (this: {
-    props: {
-      guildId: string;
-      typingUsers: Record<string, number>;
-    };
-  }) => React.ReactElement & {
-    classList?: string;
-  };
-  forceUpdate: () => void;
-};
-
-type TypingSelf = Record<string, unknown> & {
-  props: {
-    typingUsers: Record<string, number>;
-    guildId: string;
-  };
-};
-
 type BlockedStore = {
   isBlocked: (userId: string) => boolean;
   isFriend: (userId: string) => boolean;
@@ -64,64 +45,41 @@ export async function start(): Promise<void> {
   const blockedStore = await waitForProps<BlockedStore>("isBlocked", "isFriend");
   isBlocked = blockedStore.isBlocked;
 
-  void injectTyping();
   void injectUserMentions();
   void injectVoiceUsers();
 }
 
-async function injectTyping(): Promise<void> {
-  const el = await util.waitFor(".typing-2J1mQU:not(.role-color-injected)");
-  if (stopped) return;
-  el.classList.add("role-color-injected");
-  try {
-    gotTypingElement(el);
-  } catch {}
-  await injectTyping();
-}
+export function injectTyping(
+  typingUsers: Record<string, number>,
+  guildId: string | undefined,
+  res: React.ReactElement,
+): React.ReactElement | undefined {
+  if (stopped) return undefined;
+  if (!cfg.get("typingUser")) return undefined;
+  if (!guildId) return undefined;
+  if (!Array.isArray(res)) {
+    logger.error("res is not an array", { res });
+    return undefined;
+  }
 
-let typingMod: TypingElementModule;
-let typingInjections: Array<() => void> = [];
+  const currentUserId = getCurrentUser().id;
+  const users = Object.keys(typingUsers)
+    .map((x) => getTrueMember(guildId, x))
+    .filter((x) => x && x.userId !== currentUserId && !isBlocked(x.userId));
 
-function gotTypingElement(element: Element): void {
-  const typingModule = util.getOwnerInstance(element) as TypingElementModule;
-  if (!typingModule) return;
-  if (typingMod === typingModule) return;
-  typingInjections.forEach((x) => x());
-  typingMod = typingModule;
+  const objectChildren = res.filter((x) => typeof x === "object") as Array<React.ReactElement>;
+  for (const [i, element] of objectChildren.entries()) {
+    const user = users[i];
+    if (!user) {
+      logger.error("user is undefined", { users, i });
+      continue;
+    }
+    if (!user.colorString) continue;
+    element.props.style = { "--color": user.colorString };
+    element.props.className += " role-color-colored";
+  }
 
-  const uninject = inject.after(typingModule, "render", (_args, res, origSelf) => {
-    if (!res.classList) res.classList = "";
-    if (!res.classList.includes("role-color-injected")) res.classList += ` role-color-injected`;
-    if (!cfg.get("typingUser")) return res;
-
-    const typingChildren = res?.props?.children?.[0]?.props?.children?.[1];
-    if (!typingChildren) return res;
-
-    const self = origSelf as unknown as TypingSelf;
-
-    const currentUserId = getCurrentUser().id;
-
-    const users = Object.keys(self.props.typingUsers).filter(
-      (x) => x !== currentUserId && !isBlocked(x),
-    );
-
-    const { guildId } = self.props;
-    if (!guildId) return res;
-
-    users.forEach((user, i) => {
-      const el = res.props.children[0].props.children[1].props.children[i * 2];
-      if (!el?.props) return;
-      const member = getTrueMember(guildId, user);
-      if (!member?.colorString) return;
-      el.props.className = "role-color-colored";
-      el.props.style = { "--color": member.colorString };
-    });
-
-    return res;
-  });
-
-  typingInjections.push(uninject);
-  typingModule.forceUpdate();
+  return res;
 }
 
 function injectUserMentions(): void {
@@ -156,6 +114,7 @@ function injectUserMentions(): void {
 }
 
 export function injectSlateMention(id: string, guildId?: string): HTMLAttributes<HTMLDivElement> {
+  if (stopped) return {};
   if (!cfg.get("userMentions")) return {};
   if (!guildId) return {};
   const member = getTrueMember(guildId, id);
