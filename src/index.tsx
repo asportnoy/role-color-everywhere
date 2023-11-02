@@ -1,11 +1,9 @@
-import { Injector, Logger, common, settings, webpack } from "replugged";
-const { filters, waitForModule, waitForProps } = webpack;
-const {
-  React,
-  parser,
-  users: { getUser, getCurrentUser, getTrueMember },
-  lodash: _,
-} = common;
+import { Injector, Logger, settings } from "replugged";
+import { filters, waitForModule, waitForProps } from "replugged/webpack";
+import { lodash as _, parser, users } from "replugged/common";
+
+const { getUser, getCurrentUser, getTrueMember } = users;
+
 import "./main.css";
 import { hexToRgba } from "./util";
 import type { Channel, User } from "discord-types/general";

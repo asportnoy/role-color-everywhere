@@ -1,13 +1,22 @@
 import { cfg } from ".";
-import { components, util } from "replugged";
-const { SwitchItem } = components;
+import { util } from "replugged";
+import { SwitchItem } from "replugged/components";
+
+// TODO: remove this when replugged is fixed
+const FixedSwitchItem = SwitchItem as unknown as React.ComponentClass;
 
 export function Settings(): React.ReactElement {
   return (
     <div>
-      <SwitchItem {...util.useSetting(cfg, "typingUser")}>Color Typing Indicators</SwitchItem>
-      <SwitchItem {...util.useSetting(cfg, "userMentions")}>Color User Mentions</SwitchItem>
-      <SwitchItem {...util.useSetting(cfg, "voiceUsers")}>Color Voice Channel Users</SwitchItem>
+      <FixedSwitchItem {...util.useSetting(cfg, "typingUser")}>
+        Color Typing Indicators
+      </FixedSwitchItem>
+      <FixedSwitchItem {...util.useSetting(cfg, "userMentions")}>
+        Color User Mentions
+      </FixedSwitchItem>
+      <FixedSwitchItem {...util.useSetting(cfg, "voiceUsers")}>
+        Color Voice Channel Users
+      </FixedSwitchItem>
     </div>
   );
 }
