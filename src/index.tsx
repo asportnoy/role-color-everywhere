@@ -4,10 +4,11 @@ const {
   React,
   parser,
   users: { getUser, getCurrentUser, getTrueMember },
+  lodash: _,
 } = common;
 import "./main.css";
 import { hexToRgba } from "./util";
-import type { User } from "discord-types/general";
+import type { Channel, User } from "discord-types/general";
 import type { HTMLAttributes } from "react";
 interface Settings {
   typingUser?: boolean;
@@ -37,46 +38,75 @@ type BlockedStore = {
   isFriend: (userId: string) => boolean;
 };
 
-let isBlocked: BlockedStore["isBlocked"];
-
 let stopped = false;
 
-export async function start(): Promise<void> {
-  const blockedStore = await waitForProps<BlockedStore>("isBlocked", "isFriend");
-  isBlocked = blockedStore.isBlocked;
-
+export function start(): void {
   void injectUserMentions();
   void injectVoiceUsers();
+  void injectTypingUsers();
 }
 
-export function injectTyping(
-  typingUsers: Record<string, number>,
-  guildId: string | undefined,
-  res: React.ReactElement,
-): React.ReactElement | undefined {
-  if (stopped) return undefined;
-  if (!cfg.get("typingUser")) return undefined;
-  if (!guildId) return undefined;
-  if (!res || !Array.isArray(res) || res.length === 0) return res;
+async function injectTypingUsers(): Promise<void> {
+  const { isBlocked } = await waitForProps<BlockedStore>("isBlocked", "isFriend");
 
-  const currentUserId = getCurrentUser().id;
-  const users = Object.keys(typingUsers)
-    .map((x) => getTrueMember(guildId, x))
-    .filter((x) => x && x.userId !== currentUserId && !isBlocked(x.userId));
+  const typingComponent = await waitForModule<{
+    exports: {
+      default: (props: unknown) =>
+        | (Omit<React.ReactElement, "type"> & {
+            props: {
+              channel: Channel;
+              typingUsers: Record<string, number>;
+            };
+            type: {
+              prototype: {
+                render: () => {
+                  props: unknown; // Nested too deep to deal with
+                } | null;
+              };
+            };
+          })
+        | null;
+    };
+  }>(filters.bySource(/getCooldownTextStyle\(\)/), { raw: true });
 
-  const objectChildren = res.filter((x) => typeof x === "object") as Array<React.ReactElement>;
-  for (const [i, element] of objectChildren.entries()) {
-    const user = users[i];
-    if (!user) {
-      logger.error("user is undefined", { users, i });
-      continue;
-    }
-    if (!user.colorString) continue;
-    element.props.style = { "--color": user.colorString };
-    element.props.className += " role-color-colored";
-  }
+  inject.after(typingComponent.exports, "default", (_args, res) => {
+    if (!cfg.get("typingUser")) return;
+    if (!res) return;
 
-  return res;
+    const {
+      channel: { guild_id: guildId },
+      typingUsers,
+    } = res.props;
+
+    if (!guildId) return;
+
+    const uninject = inject.after(res.type.prototype, "render", (_args, res) => {
+      uninject();
+
+      const children = _.get(res?.props, "children[0].props.children[1].props.children");
+      if (!Array.isArray(children)) return;
+
+      const currentUserId = getCurrentUser().id;
+      const users = Object.keys(typingUsers)
+        .map((x) => getTrueMember(guildId, x))
+        .filter((x) => x && x.userId !== currentUserId && !isBlocked(x.userId));
+      if (!users.length) return;
+
+      const objectChildren = children.filter(
+        (x) => typeof x === "object",
+      ) as Array<React.ReactElement>;
+      for (const [i, element] of objectChildren.entries()) {
+        const user = users[i];
+        if (!user) {
+          logger.error("user is undefined", { users, i });
+          continue;
+        }
+        if (!user.colorString) continue;
+        element.props.style = { "--color": user.colorString };
+        element.props.className += " role-color-colored";
+      }
+    });
+  });
 }
 
 function injectUserMentions(): void {
