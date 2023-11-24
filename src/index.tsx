@@ -163,7 +163,7 @@ export function injectSlateMention(id: string, guildId?: string): HTMLAttributes
 
 async function injectVoiceUsers(): Promise<void> {
   const voiceUserMod = await waitForModule<Record<string, Function>>(
-    filters.bySource(".userNameClassName"),
+    filters.bySource("userNameClassName"),
   );
   const voiceUserModExport = Object.values(voiceUserMod).find(
     (x) =>
