@@ -181,25 +181,26 @@ export async function injectSlateMention(): Promise<void> {
 }
 
 async function injectVoiceUsers(): Promise<void> {
-  const voiceUserMod = await waitForModule<Record<string, Function>>(
-    filters.bySource("userNameClassName"),
-  );
-  const voiceUserModExport = Object.values(voiceUserMod).find(
-    (x) =>
-      "defaultProps" in x &&
-      x.defaultProps &&
-      typeof x.defaultProps === "object" &&
-      "userNameClassName" in x.defaultProps,
-  );
-  if (!voiceUserModExport) {
-    logger.error("Failed to find voice user module");
-    return;
-  }
+  const voiceUserMod = await waitForProps<{
+    VoiceUserList: unknown;
+    default: {
+      prototype: {
+        renderName: (args: unknown) => React.ReactElement & {
+          _owner: {
+            pendingProps: {
+              guildId: string;
+              user: User;
+            };
+          };
+        };
+      };
+    };
+  }>("VoiceUserList", "default");
 
-  inject.after(voiceUserModExport.prototype, "renderName", (_args, res) => {
+  inject.after(voiceUserMod.default.prototype, "renderName", (_args, res) => {
     if (!cfg.get("voiceUsers")) return res;
     if (!res) return res;
-    const { guildId, user }: { guildId: string; user: User } = res._owner.pendingProps;
+    const { guildId, user } = res._owner.pendingProps;
     const member = getTrueMember(guildId, user.id);
     if (!member) return res;
     if (!member.colorString) return res;
