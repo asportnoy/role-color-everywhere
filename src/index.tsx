@@ -7,7 +7,6 @@ const { getUser, getCurrentUser, getTrueMember } = users;
 import "./main.css";
 import { hexToRgba } from "./util";
 import type { Channel, User } from "discord-types/general";
-import type { HTMLAttributes } from "react";
 interface Settings {
   typingUser?: boolean;
   userMentions?: boolean;
@@ -36,10 +35,9 @@ type BlockedStore = {
   isFriend: (userId: string) => boolean;
 };
 
-let stopped = false;
-
 export function start(): void {
   void injectUserMentions();
+  void injectSlateMention();
   void injectVoiceUsers();
   void injectTypingUsers();
 }
@@ -138,27 +136,48 @@ function injectUserMentions(): void {
   });
 }
 
-export function injectSlateMention(id: string, guildId?: string): HTMLAttributes<HTMLDivElement> {
-  if (stopped) return {};
-  if (!cfg.get("userMentions")) return {};
-  if (!guildId) return {};
-  const member = getTrueMember(guildId, id);
-  if (!member) {
-    const user = getUser(id);
-    if (!user) return {};
+export async function injectSlateMention(): Promise<void> {
+  const slateMod = await waitForProps<{
+    UserMention: (props: { id: string; guildId?: string; channelId?: string }) => JSX.Element;
+    ChannelMention: unknown;
+  }>("UserMention", "ChannelMention");
 
-    return { className: "role-color-missing" };
-  }
-  if (!member.colorString) return {};
-  return {
-    style: {
-      "--color": member.colorString,
-      "--hovered-color": member.colorString,
-      "--background-color": hexToRgba(member.colorString, 0.1),
-      "--hover-background-color": hexToRgba(member.colorString, 0.2),
-    } as React.CSSProperties,
-    className: "role-color-colored role-color-child-colored",
-  };
+  inject.after(slateMod, "UserMention", (args, res) => {
+    if (!cfg.get("userMentions")) return res;
+
+    const [{ id, guildId }] = args;
+    if (!guildId) return res;
+    const member = getTrueMember(guildId, id);
+
+    let classNames = "";
+    let style: React.CSSProperties = {};
+
+    if (!member) {
+      const user = getUser(id);
+      if (!user) return res;
+
+      classNames = "role-color-missing";
+    } else if (member.colorString) {
+      style = {
+        "--color": member.colorString,
+        "--hovered-color": member.colorString,
+        "--background-color": hexToRgba(member.colorString, 0.1),
+        "--hover-background-color": hexToRgba(member.colorString, 0.2),
+      } as React.CSSProperties;
+      classNames = "role-color-colored role-color-child-colored";
+    }
+
+    const removeChildInject = inject.after(res.props, "children", (_args, res) => {
+      removeChildInject();
+
+      res.props.className ??= "";
+      res.props.className += classNames;
+      res.props.style ??= {};
+      Object.assign(res.props.style, style);
+    });
+
+    return res;
+  });
 }
 
 async function injectVoiceUsers(): Promise<void> {
@@ -191,6 +210,5 @@ async function injectVoiceUsers(): Promise<void> {
 }
 
 export function stop(): void {
-  stopped = true;
   inject.uninjectAll();
 }
